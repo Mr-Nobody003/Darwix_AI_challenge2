@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Pitch Visualizer</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=Outfit:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0f1115;
+            --surface-color: rgba(255, 255, 255, 0.03);
+            --border-color: rgba(255, 255, 255, 0.08);
+            --accent-primary: #6366f1;
+            --accent-glow: rgba(99, 102, 241, 0.5);
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --error-color: #ef4444;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background-image: 
+                radial-gradient(circle at 15% 50%, rgba(99, 102, 241, 0.08), transparent 25%),
+                radial-gradient(circle at 85% 30%, rgba(168, 85, 247, 0.08), transparent 25%);
+        }
+
+        .container {
+            width: 100%;
+            max-width: 800px;
+            padding: 2rem;
+            position: relative;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 3rem;
+            animation: fadeInDown 0.8s ease-out;
+        }
+
+        h1 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 3.5rem;
+            font-weight: 800;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(to right, #818cf8, #c084fc);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -1px;
+        }
+
+        p.subtitle {
+            font-size: 1.1rem;
+            color: var(--text-muted);
+            font-weight: 300;
+        }
+
+        .glass-panel {
+            background: var(--surface-color);
+            border: 1px solid var(--border-color);
+            backdrop-filter: blur(12px);
+            border-radius: 24px;
+            padding: 2.5rem;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            animation: fadeInUp 0.8s ease-out 0.2s both;
+        }
+
+        form {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        label {
+            font-weight: 600;
+            font-size: 1rem;
+            color: var(--text-main);
+            letter-spacing: 0.5px;
+        }
+
+        textarea {
+            width: 100%;
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 1.2rem;
+            font-family: 'Inter', sans-serif;
+            font-size: 1.05rem;
+            color: var(--text-main);
+            line-height: 1.6;
+            resize: vertical;
+            min-height: 180px;
+            transition: all 0.3s ease;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
+        }
+
+        textarea::placeholder {
+            color: rgba(148, 163, 184, 0.5);
+        }
+
+        .submit-btn {
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            padding: 1.2rem 2.5rem;
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.2rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+            align-self: center;
+        }
+
+        .submit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px -10px var(--accent-glow);
+        }
+
+        .submit-btn:active {
+            transform: translateY(0);
+        }
+
+        /* Loading State Styles */
+        .loading-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(15, 17, 21, 0.85);
+            backdrop-filter: blur(8px);
+            z-index: 100;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .loader {
+            width: 60px;
+            height: 60px;
+            border: 4px solid var(--border-color);
+            border-top-color: var(--accent-primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 1.5rem;
+        }
+
+        .loading-text {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.5rem;
+            font-weight: 600;
+            background: linear-gradient(to right, #818cf8, #c084fc);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: pulse 2s infinite ease-in-out;
+        }
+
+        /* Flash Messages */
+        .flash-messages {
+            margin-bottom: 1.5rem;
+        }
+
+        .flash {
+            padding: 1rem 1.5rem;
+            border-radius: 12px;
+            font-weight: 500;
+            animation: fadeInDown 0.4s ease-out;
+        }
+
+        .flash.error {
+            background-color: rgba(239, 68, 68, 0.1);
+            color: var(--error-color);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+        }
+
+        /* Animations */
+        @keyframes fadeInDown {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .style-select {
+            width: 100%;
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1rem;
+            font-family: 'Inter', sans-serif;
+            font-size: 1.05rem;
+            color: var(--text-main);
+            margin-bottom: 0.5rem;
+        }
+
+        .style-select option {
+            background-color: var(--bg-color);
+            color: white;
+        }
+
+        .storyboard-container {
+            padding: 4rem 0;
+            width: 100%;
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 4rem;
+        }
+
+        .panel-wrapper {
+            display: flex;
+            flex-direction: column;
+            background: var(--surface-color);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.3);
+            opacity: 0;
+            transform: translateY(30px);
+            animation: fadeUp 0.8s forwards;
+        }
+
+        @media (min-width: 768px) {
+            .panel-wrapper {
+                flex-direction: row;
+                align-items: stretch;
+            }
+            .panel-wrapper:nth-child(even) {
+                flex-direction: row-reverse;
+            }
+        }
+
+        .image-container {
+            flex: 1;
+            position: relative;
+            min-height: 400px;
+            overflow: hidden;
+        }
+
+        .image-container img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            position: absolute;
+            top: 0;
+            left: 0;
+            transition: transform 0.5s ease;
+        }
+
+        .panel-wrapper:hover .image-container img {
+            transform: scale(1.05);
+        }
+
+        .caption-container {
+            flex: 1;
+            padding: 3rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .caption-text {
+            font-size: 1.5rem;
+            line-height: 1.5;
+            font-style: italic;
+            color: rgba(255, 255, 255, 0.9);
+            font-family: 'Outfit', sans-serif;
+            font-weight: 300;
+            border-left: 4px solid var(--accent-primary);
+            padding-left: 1.5rem;
+        }
+
+        .panel-num {
+            position: absolute;
+            top: 1.5rem;
+            right: 2rem;
+            font-size: 4rem;
+            font-weight: 800;
+            color: rgba(255, 255, 255, 0.05);
+            font-family: 'Outfit', sans-serif;
+        }
+
+        @keyframes fadeUp {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loader"></div>
+        <div class="loading-text">Manifesting your vision...</div>
+        <p style="margin-top: 10px; color: var(--text-muted); font-size: 0.9rem;">This may take a minute based on story length.</p>
+    </div>
+
+    <div class="container">
+        <header>
+            <h1>The Pitch Visualizer</h1>
+            <p class="subtitle">Turn your narrative into a compelling cinematic storyboard.</p>
+        </header>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="flash-messages">
+                    {% for category, message in messages %}
+                        <div class="flash {{ category }}">{{ message }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        <div class="glass-panel">
+            <form id="pitchForm">
+                <label for="narrative_text">Enter your story concept (3-5 sentences):</label>
+                <textarea 
+                    name="narrative_text" 
+                    id="narrative_text" 
+                    placeholder="E.g., A lone astronaut explores the ruins of an ancient alien city buried in purple glowing sands. Giant crystalline structures tower into a star-filled sky. Suddenly, a mysterious light begins to pulse from the largest crystal..."
+                    required
+                ></textarea>
+                
+                <label for="visual_style">Visual Style:</label>
+                <select name="visual_style" id="visual_style" class="style-select">
+                    <option value="Cinematic, highly detailed, photorealistic, 8k resolution, Unreal Engine 5">Cinematic / Realistic</option>
+                    <option value="Cyberpunk, neon lighting, futuristic, highly detailed, dark, raining">Cyberpunk</option>
+                    <option value="Digital concept art, fantasy, vibrant colors, magical, enchanting">Fantasy Concept Art</option>
+                    <option value="Anime style, Studio Ghibli, beautiful scenery, hand-drawn anime aesthetic">Anime / Ghibli</option>
+                    <option value="Comic book style, bold outlines, vivid colors, graphic novel aesthetics">Graphic Novel</option>
+                </select>
+
+                <button type="submit" class="submit-btn" id="submitBtn">Generate Storyboard</button>
+            </form>
+        </div>
+    </div>
+
+    <main id="storyboardContainer" class="storyboard-container" style="display: none;"></main>
+
+    <script>
+        document.getElementById('pitchForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const textInput = document.getElementById('narrative_text').value.trim();
+            const styleInput = document.getElementById('visual_style').value;
+            const submitBtn = document.getElementById('submitBtn');
+            const loadingOverlay = document.getElementById('loadingOverlay');
+            const storyboardContainer = document.getElementById('storyboardContainer');
+            
+            if(textInput === '') return;
+            
+            loadingOverlay.style.display = 'flex';
+            submitBtn.disabled = true;
+            submitBtn.style.opacity = '0.7';
+            storyboardContainer.style.display = 'none';
+            storyboardContainer.innerHTML = '';
+            
+            try {
+                // 1. Segment Text
+                const segResponse = await fetch('/api/segment', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({narrative_text: textInput})
+                });
+                const segData = await segResponse.json();
+                
+                if(!segResponse.ok) {
+                    throw new Error(segData.error || 'Failed to segment text');
+                }
+                
+                const sentences = segData.sentences;
+                if(sentences.length === 0) throw new Error("No valid sentences found.");
+                
+                loadingOverlay.style.display = 'none';
+                storyboardContainer.style.display = 'flex';
+                
+                // 2. Sequentially generate panels
+                for(let i = 0; i < sentences.length; i++) {
+                    const sentence = sentences[i];
+                    
+                    // Create placeholder loading panel
+                    const panelDiv = document.createElement('div');
+                    panelDiv.className = 'panel-wrapper';
+                    panelDiv.style.opacity = '0.5';
+                    panelDiv.innerHTML = `
+                        <div class="image-container" style="display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.3);">
+                            <div class="loader" style="border-top-color: var(--accent-primary); width: 40px; height: 40px; margin: 0;"></div>
+                        </div>
+                        <div class="caption-container">
+                            <div class="panel-num">${i + 1}</div>
+                            <p class="caption-text">"${sentence}"</p>
+                        </div>
+                    `;
+                    storyboardContainer.appendChild(panelDiv);
+                    
+                    // Scroll to newly added panel
+                    const yOffset = panelDiv.getBoundingClientRect().top + window.scrollY - 100;
+                    window.scrollTo({top: yOffset, behavior: 'smooth'});
+                    
+                    // Fetch generation
+                    const panelResponse = await fetch('/api/generate_panel', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({sentence: sentence, style: styleInput})
+                    });
+                    
+                    const panelData = await panelResponse.json();
+                    if(!panelResponse.ok) {
+                        console.error('Error generating panel:', panelData.error);
+                        panelDiv.querySelector('.image-container').innerHTML = `
+                            <div style="padding: 2rem; color: #ef4444; background: rgba(239, 68, 68, 0.1); width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; text-align: center;">
+                                Failed to generate image: ${panelData.error}
+                            </div>
+                        `;
+                        panelDiv.style.opacity = '1';
+                        continue;
+                    }
+                    
+                    // Update panel with real image
+                    panelDiv.style.opacity = '1';
+                    panelDiv.querySelector('.image-container').innerHTML = `
+                        <img src="${panelData.image_url}" alt="Storyboard image ${i + 1}">
+                    `;
+                }
+                
+                // Final scroll to show everything fits nicely
+                const lastPanel = storyboardContainer.lastElementChild;
+                if (lastPanel) {
+                    const yOffset = lastPanel.getBoundingClientRect().top + window.scrollY - 100;
+                    window.scrollTo({top: yOffset, behavior: 'smooth'});
+                }
+                
+            } catch(error) {
+                alert("Error: " + error.message);
+                loadingOverlay.style.display = 'none';
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.style.opacity = '1';
+            }
+        });
+    </script>
+</body>
+</html>
